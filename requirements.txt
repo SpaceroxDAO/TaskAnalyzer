@@ -1,0 +1,14 @@
+# TaskAnalyzer Dependencies
+# =========================
+
+# OpenAI Whisper for local audio transcription
+openai-whisper>=20231117
+
+# Anthropic SDK for Claude Vision API
+anthropic>=0.18.0
+
+# Image handling (used by whisper internally)
+Pillow>=10.0.0
+
+# Environment variable loading (optional but recommended)
+python-dotenv>=1.0.0

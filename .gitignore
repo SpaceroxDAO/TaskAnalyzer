@@ -1,0 +1,24 @@
+# Environment variables (contains API keys)
+.env
+
+# Python virtual environment
+venv/
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+
+# Output directory (generated artifacts)
+output/
+
+# Uploads directory (user uploaded videos)
+uploads/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+
+# macOS
+.DS_Store
