@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>TaskAnalyzer - Video Task Understanding</title>
+    <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
     <style>
         * {
             box-sizing: border-box;
@@ -42,6 +43,44 @@
             font-size: 0.95rem;
         }
 
+        /* Mode Selector */
+        .mode-selector {
+            display: flex;
+            justify-content: center;
+            gap: 10px;
+            margin-bottom: 30px;
+        }
+
+        .mode-btn {
+            padding: 12px 30px;
+            border: 2px solid #333;
+            background: transparent;
+            color: #888;
+            border-radius: 30px;
+            cursor: pointer;
+            font-size: 0.95rem;
+            transition: all 0.3s ease;
+        }
+
+        .mode-btn:hover {
+            border-color: #555;
+            color: #fff;
+        }
+
+        .mode-btn.active {
+            border-color: #6366f1;
+            background: #1e1b4b;
+            color: #fff;
+        }
+
+        .mode-content {
+            display: none;
+        }
+
+        .mode-content.active {
+            display: block;
+        }
+
         /* Drop Zone */
         .drop-zone {
             border: 2px dashed #444;
@@ -78,6 +117,310 @@
 
         .drop-zone input[type="file"] {
             display: none;
+        }
+
+        /* Live Stream Input */
+        .live-input-section {
+            background: #1a1a1a;
+            border-radius: 12px;
+            padding: 30px;
+            margin-bottom: 30px;
+        }
+
+        .live-input-row {
+            display: flex;
+            gap: 15px;
+            margin-bottom: 20px;
+            flex-wrap: wrap;
+        }
+
+        .live-input-group {
+            flex: 1;
+            min-width: 200px;
+        }
+
+        .live-input-group label {
+            display: block;
+            font-size: 0.8rem;
+            color: #888;
+            margin-bottom: 8px;
+            text-transform: uppercase;
+        }
+
+        .live-input-group input,
+        .live-input-group select {
+            width: 100%;
+            padding: 12px 15px;
+            border: 1px solid #333;
+            border-radius: 8px;
+            background: #111;
+            color: #fff;
+            font-size: 0.95rem;
+        }
+
+        .live-input-group input:focus,
+        .live-input-group select:focus {
+            outline: none;
+            border-color: #6366f1;
+        }
+
+        .live-buttons {
+            display: flex;
+            gap: 10px;
+        }
+
+        .btn {
+            padding: 12px 25px;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 0.9rem;
+            font-weight: 500;
+            transition: all 0.2s;
+        }
+
+        .btn-primary {
+            background: #6366f1;
+            color: #fff;
+        }
+
+        .btn-primary:hover {
+            background: #4f46e5;
+        }
+
+        .btn-primary:disabled {
+            background: #4b5563;
+            cursor: not-allowed;
+        }
+
+        .btn-danger {
+            background: #dc2626;
+            color: #fff;
+        }
+
+        .btn-danger:hover {
+            background: #b91c1c;
+        }
+
+        .btn-secondary {
+            background: #333;
+            color: #fff;
+        }
+
+        .btn-secondary:hover {
+            background: #444;
+        }
+
+        /* Live Status */
+        .live-status-section {
+            display: none;
+            background: #1a1a1a;
+            border-radius: 12px;
+            padding: 20px;
+            margin-bottom: 30px;
+        }
+
+        .live-status-section.visible {
+            display: block;
+        }
+
+        .live-status-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+
+        .live-status-header h3 {
+            color: #fff;
+            font-size: 1.1rem;
+        }
+
+        .live-indicator {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 0.85rem;
+        }
+
+        .live-dot {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            background: #888;
+        }
+
+        .live-dot.connecting {
+            background: #f59e0b;
+            animation: pulse 1.5s infinite;
+        }
+
+        .live-dot.connected {
+            background: #22c55e;
+            animation: pulse 2s infinite;
+        }
+
+        .live-dot.error {
+            background: #ef4444;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+
+        /* Live Stats Grid */
+        .live-stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+
+        .live-stat {
+            background: #252525;
+            border-radius: 8px;
+            padding: 15px;
+            text-align: center;
+        }
+
+        .live-stat-value {
+            font-size: 1.5rem;
+            font-weight: 600;
+            color: #fff;
+        }
+
+        .live-stat-label {
+            font-size: 0.75rem;
+            color: #888;
+            margin-top: 5px;
+            text-transform: uppercase;
+        }
+
+        /* Live Content Grid */
+        .live-content-grid {
+            display: grid;
+            grid-template-columns: 300px 1fr;
+            gap: 20px;
+        }
+
+        @media (max-width: 900px) {
+            .live-content-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        /* Live Frame Preview */
+        .live-frame-preview {
+            background: #111;
+            border-radius: 8px;
+            aspect-ratio: 16/9;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            overflow: hidden;
+        }
+
+        .live-frame-preview img {
+            width: 100%;
+            height: 100%;
+            object-fit: contain;
+        }
+
+        .live-frame-preview .placeholder {
+            color: #555;
+            font-size: 0.9rem;
+        }
+
+        .live-frame-time {
+            font-size: 0.75rem;
+            color: #666;
+            margin-top: 8px;
+            text-align: center;
+        }
+
+        /* Live Transcript */
+        .live-transcript-box {
+            background: #111;
+            border-radius: 8px;
+            padding: 15px;
+            max-height: 200px;
+            overflow-y: auto;
+        }
+
+        .live-transcript-entry {
+            padding: 8px 0;
+            border-bottom: 1px solid #222;
+            font-size: 0.9rem;
+        }
+
+        .live-transcript-time {
+            font-size: 0.75rem;
+            color: #666;
+            margin-right: 10px;
+        }
+
+        /* Live Analysis */
+        .live-analysis-card {
+            background: #252525;
+            border-radius: 8px;
+            padding: 15px;
+            margin-bottom: 15px;
+        }
+
+        .live-analysis-task {
+            font-size: 1.1rem;
+            color: #fff;
+            margin-bottom: 10px;
+        }
+
+        .live-analysis-confidence {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 10px;
+        }
+
+        .live-analysis-confidence-bar {
+            flex: 1;
+            height: 6px;
+            background: #333;
+            border-radius: 3px;
+            overflow: hidden;
+        }
+
+        .live-analysis-confidence-fill {
+            height: 100%;
+            background: #22c55e;
+            transition: width 0.3s;
+        }
+
+        .live-analysis-confidence-value {
+            font-size: 0.85rem;
+            color: #22c55e;
+            font-weight: 600;
+            min-width: 45px;
+        }
+
+        .live-analysis-steps {
+            font-size: 0.85rem;
+            color: #aaa;
+        }
+
+        .live-analysis-steps li {
+            padding: 4px 0;
+        }
+
+        /* Live Context */
+        .live-context-section {
+            margin-top: 15px;
+        }
+
+        .live-context-section h4 {
+            font-size: 0.75rem;
+            color: #666;
+            text-transform: uppercase;
+            margin-bottom: 8px;
         }
 
         /* Progress Section */
@@ -143,6 +486,7 @@
             margin-bottom: 20px;
             border-bottom: 1px solid #333;
             padding-bottom: 10px;
+            flex-wrap: wrap;
         }
 
         .tab {
@@ -499,58 +843,6 @@
         }
 
         /* Debug Panel */
-        .debug-panel {
-            background: #1a1a1a;
-            border-radius: 12px;
-            margin-top: 20px;
-        }
-
-        .debug-header {
-            padding: 15px 20px;
-            border-bottom: 1px solid #333;
-            cursor: pointer;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-        }
-
-        .debug-header h3 {
-            font-size: 0.9rem;
-            color: #888;
-            margin: 0;
-            border: none;
-            padding: 0;
-        }
-
-        .debug-toggle {
-            font-size: 0.8rem;
-            color: #666;
-        }
-
-        .debug-content {
-            display: none;
-            padding: 20px;
-        }
-
-        .debug-content.visible {
-            display: block;
-        }
-
-        .debug-section {
-            margin-bottom: 20px;
-        }
-
-        .debug-section:last-child {
-            margin-bottom: 0;
-        }
-
-        .debug-section h4 {
-            font-size: 0.8rem;
-            color: #666;
-            margin-bottom: 10px;
-            text-transform: uppercase;
-        }
-
         .debug-json {
             font-family: 'Monaco', 'Menlo', monospace;
             font-size: 0.75rem;
@@ -650,254 +942,409 @@
             padding: 40px;
             color: #666;
         }
+
+        /* Stream check result */
+        .stream-check-result {
+            margin-top: 15px;
+            padding: 12px 15px;
+            border-radius: 8px;
+            font-size: 0.9rem;
+        }
+
+        .stream-check-result.success {
+            background: #14532d;
+            color: #86efac;
+        }
+
+        .stream-check-result.error {
+            background: #7f1d1d;
+            color: #fca5a5;
+        }
+
+        .stream-check-result.checking {
+            background: #1e3a5f;
+            color: #93c5fd;
+        }
     </style>
 </head>
 <body>
     <div class="container">
         <header>
             <h1>TaskAnalyzer</h1>
-            <p>Drop a video to analyze the task and extract automation context</p>
+            <p>Analyze tasks from video recordings or live Twitch streams</p>
         </header>
 
-        <!-- Drop Zone -->
-        <div class="drop-zone" id="dropZone">
-            <h2>Drop Video Here</h2>
-            <p>or click to select a file (MP4, MOV, WebM)</p>
-            <input type="file" id="fileInput" accept="video/*">
+        <!-- Mode Selector -->
+        <div class="mode-selector">
+            <button class="mode-btn active" data-mode="upload" onclick="switchMode('upload')">
+                Upload Video
+            </button>
+            <button class="mode-btn" data-mode="live" onclick="switchMode('live')">
+                Live Stream
+            </button>
         </div>
 
-        <!-- Progress Section -->
-        <div class="progress-section" id="progressSection">
-            <div class="progress-header">
-                <h3>Analysis Progress</h3>
-                <span class="progress-status" id="progressStatus">Pending</span>
-            </div>
-            <div class="progress-bar-container">
-                <div class="progress-bar" id="progressBar"></div>
-            </div>
-            <div class="progress-stage" id="progressStage">Waiting...</div>
-        </div>
-
-        <!-- Video Info -->
-        <div class="video-info" id="videoInfo" style="display: none;">
-            <div class="info-item">
-                <label>Duration</label>
-                <value id="infoDuration">-</value>
-            </div>
-            <div class="info-item">
-                <label>Frames</label>
-                <value id="infoFrames">-</value>
-            </div>
-            <div class="info-item">
-                <label>Processing Time</label>
-                <value id="infoTime">-</value>
-            </div>
-            <div class="info-item">
-                <label>Automation Score</label>
-                <value id="infoScore">-</value>
-            </div>
-        </div>
-
-        <!-- Analysis Result -->
-        <div class="analysis-result" id="analysisResult">
-            <!-- Tabs -->
-            <div class="tabs">
-                <button class="tab active" data-tab="overview">Overview</button>
-                <button class="tab" data-tab="context">Context</button>
-                <button class="tab" data-tab="automation">Automation</button>
-                <button class="tab" data-tab="frames">Frames</button>
-                <button class="tab" data-tab="debug">Debug</button>
+        <!-- Upload Mode -->
+        <div class="mode-content active" id="mode-upload">
+            <!-- Drop Zone -->
+            <div class="drop-zone" id="dropZone">
+                <h2>Drop Video Here</h2>
+                <p>or click to select a file (MP4, MOV, WebM)</p>
+                <input type="file" id="fileInput" accept="video/*">
             </div>
 
-            <!-- Overview Tab -->
-            <div class="tab-content active" id="tab-overview">
-                <div class="results-grid">
-                    <!-- Task Analysis Panel -->
-                    <div class="panel">
-                        <h3>Task Identified</h3>
-                        <div class="task-name" id="taskName">-</div>
-                        <div class="confidence-bar">
-                            <label>Confidence</label>
-                            <div class="confidence-meter">
-                                <div class="confidence-fill" id="confidenceFill"></div>
+            <!-- Progress Section -->
+            <div class="progress-section" id="progressSection">
+                <div class="progress-header">
+                    <h3>Analysis Progress</h3>
+                    <span class="progress-status" id="progressStatus">Pending</span>
+                </div>
+                <div class="progress-bar-container">
+                    <div class="progress-bar" id="progressBar"></div>
+                </div>
+                <div class="progress-stage" id="progressStage">Waiting...</div>
+            </div>
+
+            <!-- Video Info -->
+            <div class="video-info" id="videoInfo" style="display: none;">
+                <div class="info-item">
+                    <label>Duration</label>
+                    <value id="infoDuration">-</value>
+                </div>
+                <div class="info-item">
+                    <label>Frames</label>
+                    <value id="infoFrames">-</value>
+                </div>
+                <div class="info-item">
+                    <label>Processing Time</label>
+                    <value id="infoTime">-</value>
+                </div>
+                <div class="info-item">
+                    <label>Automation Score</label>
+                    <value id="infoScore">-</value>
+                </div>
+            </div>
+
+            <!-- Analysis Result (Batch) -->
+            <div class="analysis-result" id="analysisResult">
+                <!-- Tabs -->
+                <div class="tabs">
+                    <button class="tab active" data-tab="overview">Overview</button>
+                    <button class="tab" data-tab="context">Context</button>
+                    <button class="tab" data-tab="automation">Automation</button>
+                    <button class="tab" data-tab="frames">Frames</button>
+                    <button class="tab" data-tab="debug">Debug</button>
+                </div>
+
+                <!-- Overview Tab -->
+                <div class="tab-content active" id="tab-overview">
+                    <div class="results-grid">
+                        <!-- Task Analysis Panel -->
+                        <div class="panel">
+                            <h3>Task Identified</h3>
+                            <div class="task-name" id="taskName">-</div>
+                            <div class="confidence-bar">
+                                <label>Confidence</label>
+                                <div class="confidence-meter">
+                                    <div class="confidence-fill" id="confidenceFill"></div>
+                                </div>
+                                <span class="confidence-value" id="confidenceValue">-</span>
                             </div>
-                            <span class="confidence-value" id="confidenceValue">-</span>
+                            <div class="completion-badge incomplete" id="completionBadge">
+                                <span id="completionIcon">○</span>
+                                <span id="completionText">Not Completed</span>
+                            </div>
                         </div>
-                        <div class="completion-badge incomplete" id="completionBadge">
-                            <span id="completionIcon">○</span>
-                            <span id="completionText">Not Completed</span>
+
+                        <!-- Steps Panel -->
+                        <div class="panel">
+                            <h3>Workflow Steps</h3>
+                            <ol class="steps-list" id="stepsList"></ol>
+                        </div>
+
+                        <!-- Transcript Panel -->
+                        <div class="panel">
+                            <h3>Transcript</h3>
+                            <div class="transcript-text" id="transcriptText">No transcript available</div>
+                        </div>
+
+                        <!-- Quick Context Panel -->
+                        <div class="panel">
+                            <h3>Quick Context</h3>
+                            <div class="context-section">
+                                <h4>Applications Detected</h4>
+                                <div class="tag-list" id="quickApps"></div>
+                            </div>
+                            <div class="context-section">
+                                <h4>URLs Found</h4>
+                                <div class="tag-list" id="quickUrls"></div>
+                            </div>
+                        </div>
+
+                        <!-- Logs Panel -->
+                        <div class="panel full-width">
+                            <h3>Processing Logs</h3>
+                            <div class="logs-output" id="logsOutput"></div>
                         </div>
                     </div>
+                </div>
 
-                    <!-- Steps Panel -->
-                    <div class="panel">
-                        <h3>Workflow Steps</h3>
-                        <ol class="steps-list" id="stepsList"></ol>
-                    </div>
-
-                    <!-- Transcript Panel -->
-                    <div class="panel">
-                        <h3>Transcript</h3>
-                        <div class="transcript-text" id="transcriptText">No transcript available</div>
-                    </div>
-
-                    <!-- Quick Context Panel -->
-                    <div class="panel">
-                        <h3>Quick Context</h3>
-                        <div class="context-section">
-                            <h4>Applications Detected</h4>
-                            <div class="tag-list" id="quickApps"></div>
+                <!-- Context Tab -->
+                <div class="tab-content" id="tab-context">
+                    <div class="results-grid">
+                        <div class="panel">
+                            <h3>Applications & Services</h3>
+                            <div class="context-section">
+                                <h4>Applications Mentioned</h4>
+                                <div class="tag-list" id="ctxApps"></div>
+                            </div>
+                            <div class="context-section">
+                                <h4>URLs & Domains</h4>
+                                <div class="tag-list" id="ctxUrls"></div>
+                            </div>
+                            <div class="context-section">
+                                <h4>Email Addresses</h4>
+                                <div class="tag-list" id="ctxEmails"></div>
+                            </div>
                         </div>
-                        <div class="context-section">
-                            <h4>URLs Found</h4>
-                            <div class="tag-list" id="quickUrls"></div>
+
+                        <div class="panel">
+                            <h3>Action Verbs Detected</h3>
+                            <div class="action-timeline" id="actionTimeline"></div>
+                        </div>
+
+                        <div class="panel">
+                            <h3>Sequence Markers</h3>
+                            <div class="action-timeline" id="sequenceMarkers"></div>
+                        </div>
+
+                        <div class="panel">
+                            <h3>Sentiment Analysis</h3>
+                            <div class="context-section">
+                                <h4>Frustration Indicators</h4>
+                                <div class="tag-list" id="ctxFrustration"></div>
+                            </div>
+                            <div class="context-section">
+                                <h4>Hesitation Markers</h4>
+                                <div class="tag-list" id="ctxHesitation"></div>
+                            </div>
+                            <div class="context-section">
+                                <h4>Repetition Phrases</h4>
+                                <div class="tag-list" id="ctxRepetition"></div>
+                            </div>
+                        </div>
+
+                        <div class="panel full-width">
+                            <h3>Pain Points Identified</h3>
+                            <div id="painPoints"></div>
                         </div>
                     </div>
+                </div>
 
-                    <!-- Logs Panel -->
+                <!-- Automation Tab -->
+                <div class="tab-content" id="tab-automation">
+                    <div class="results-grid">
+                        <div class="panel">
+                            <h3>Automation Potential</h3>
+                            <div class="score-card" id="autoScoreCard">
+                                <div class="score-value" id="autoScore">-</div>
+                                <div class="score-label">Automation Candidate Score</div>
+                            </div>
+                            <div class="score-card" id="complexityCard">
+                                <div class="score-value" id="complexityScore">-</div>
+                                <div class="score-label">Complexity Score</div>
+                            </div>
+                            <div class="context-section">
+                                <h4>Estimated Frequency</h4>
+                                <div class="tag-list" id="autoFrequency"></div>
+                            </div>
+                        </div>
+
+                        <div class="panel">
+                            <h3>Automation Suggestions</h3>
+                            <div id="autoSuggestions"></div>
+                        </div>
+
+                        <div class="panel">
+                            <h3>Decision Points</h3>
+                            <div id="decisionPoints"></div>
+                        </div>
+
+                        <div class="panel">
+                            <h3>Systems Involved</h3>
+                            <div class="context-section">
+                                <h4>Applications</h4>
+                                <div class="tag-list" id="autoApps"></div>
+                            </div>
+                            <div class="context-section">
+                                <h4>URLs Accessed</h4>
+                                <div class="tag-list" id="autoUrls"></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Frames Tab -->
+                <div class="tab-content" id="tab-frames">
                     <div class="panel full-width">
-                        <h3>Processing Logs</h3>
-                        <div class="logs-output" id="logsOutput"></div>
+                        <h3>Extracted Frames</h3>
+                        <div class="frames-gallery" id="framesGallery"></div>
+                    </div>
+
+                    <div class="panel full-width" style="margin-top: 20px;">
+                        <h3>Frame OCR & Context</h3>
+                        <div id="frameContextDetails"></div>
+                    </div>
+                </div>
+
+                <!-- Debug Tab -->
+                <div class="tab-content" id="tab-debug">
+                    <div class="results-grid">
+                        <div class="panel">
+                            <h3>API Request</h3>
+                            <pre class="debug-json" id="debugRequest">-</pre>
+                        </div>
+                        <div class="panel">
+                            <h3>API Response Summary</h3>
+                            <pre class="debug-json" id="debugResponse">-</pre>
+                        </div>
+                        <div class="panel full-width">
+                            <h3>Full Analysis JSON</h3>
+                            <pre class="debug-json" id="debugAnalysis">-</pre>
+                        </div>
+                        <div class="panel full-width">
+                            <h3>Full Context JSON</h3>
+                            <pre class="debug-json" id="debugContext">-</pre>
+                        </div>
                     </div>
                 </div>
             </div>
+        </div>
 
-            <!-- Context Tab -->
-            <div class="tab-content" id="tab-context">
-                <div class="results-grid">
-                    <!-- Applications & URLs -->
-                    <div class="panel">
-                        <h3>Applications & Services</h3>
-                        <div class="context-section">
-                            <h4>Applications Mentioned</h4>
-                            <div class="tag-list" id="ctxApps"></div>
-                        </div>
-                        <div class="context-section">
-                            <h4>URLs & Domains</h4>
-                            <div class="tag-list" id="ctxUrls"></div>
-                        </div>
-                        <div class="context-section">
-                            <h4>Email Addresses</h4>
-                            <div class="tag-list" id="ctxEmails"></div>
-                        </div>
+        <!-- Live Stream Mode -->
+        <div class="mode-content" id="mode-live">
+            <!-- Live Input Section -->
+            <div class="live-input-section">
+                <div class="live-input-row">
+                    <div class="live-input-group" style="flex: 2;">
+                        <label>Twitch Stream URL or Channel Name</label>
+                        <input type="text" id="twitchUrl" placeholder="e.g., shroud or https://twitch.tv/shroud">
                     </div>
-
-                    <!-- Action Verbs -->
-                    <div class="panel">
-                        <h3>Action Verbs Detected</h3>
-                        <div class="action-timeline" id="actionTimeline"></div>
+                    <div class="live-input-group">
+                        <label>Quality</label>
+                        <select id="streamQuality">
+                            <option value="360p">360p (Fast)</option>
+                            <option value="480p" selected>480p (Recommended)</option>
+                            <option value="720p">720p (HD)</option>
+                            <option value="720p60">720p60 (HD 60fps)</option>
+                            <option value="1080p60">1080p60 (Full HD)</option>
+                        </select>
                     </div>
-
-                    <!-- Sequence & Flow -->
-                    <div class="panel">
-                        <h3>Sequence Markers</h3>
-                        <div class="action-timeline" id="sequenceMarkers"></div>
-                    </div>
-
-                    <!-- Sentiment -->
-                    <div class="panel">
-                        <h3>Sentiment Analysis</h3>
-                        <div class="context-section">
-                            <h4>Frustration Indicators</h4>
-                            <div class="tag-list" id="ctxFrustration"></div>
-                        </div>
-                        <div class="context-section">
-                            <h4>Hesitation Markers</h4>
-                            <div class="tag-list" id="ctxHesitation"></div>
-                        </div>
-                        <div class="context-section">
-                            <h4>Repetition Phrases</h4>
-                            <div class="tag-list" id="ctxRepetition"></div>
-                        </div>
-                    </div>
-
-                    <!-- Pain Points -->
-                    <div class="panel full-width">
-                        <h3>Pain Points Identified</h3>
-                        <div id="painPoints"></div>
+                    <div class="live-input-group">
+                        <label>Analysis Interval</label>
+                        <select id="analysisInterval">
+                            <option value="30">30 seconds</option>
+                            <option value="60">60 seconds</option>
+                            <option value="120">2 minutes</option>
+                        </select>
                     </div>
                 </div>
+                <div class="live-buttons">
+                    <button class="btn btn-secondary" id="checkStreamBtn" onclick="checkStream()">Check Stream</button>
+                    <button class="btn btn-primary" id="startStreamBtn" onclick="startStream()" disabled>Start Analysis</button>
+                    <button class="btn btn-danger" id="stopStreamBtn" onclick="stopStream()" style="display: none;">Stop</button>
+                </div>
+                <div id="streamCheckResult"></div>
             </div>
 
-            <!-- Automation Tab -->
-            <div class="tab-content" id="tab-automation">
-                <div class="results-grid">
-                    <!-- Scores -->
-                    <div class="panel">
-                        <h3>Automation Potential</h3>
-                        <div class="score-card" id="autoScoreCard">
-                            <div class="score-value" id="autoScore">-</div>
-                            <div class="score-label">Automation Candidate Score</div>
-                        </div>
-                        <div class="score-card" id="complexityCard">
-                            <div class="score-value" id="complexityScore">-</div>
-                            <div class="score-label">Complexity Score</div>
-                        </div>
-                        <div class="context-section">
-                            <h4>Estimated Frequency</h4>
-                            <div class="tag-list" id="autoFrequency"></div>
-                        </div>
-                    </div>
-
-                    <!-- Suggestions -->
-                    <div class="panel">
-                        <h3>Automation Suggestions</h3>
-                        <div id="autoSuggestions"></div>
-                    </div>
-
-                    <!-- Decision Points -->
-                    <div class="panel">
-                        <h3>Decision Points</h3>
-                        <div id="decisionPoints"></div>
-                    </div>
-
-                    <!-- Systems -->
-                    <div class="panel">
-                        <h3>Systems Involved</h3>
-                        <div class="context-section">
-                            <h4>Applications</h4>
-                            <div class="tag-list" id="autoApps"></div>
-                        </div>
-                        <div class="context-section">
-                            <h4>URLs Accessed</h4>
-                            <div class="tag-list" id="autoUrls"></div>
-                        </div>
+            <!-- Live Status Section -->
+            <div class="live-status-section" id="liveStatusSection">
+                <div class="live-status-header">
+                    <h3>Live Analysis Session</h3>
+                    <div class="live-indicator">
+                        <span class="live-dot" id="liveDot"></span>
+                        <span id="liveStatusText">Connecting...</span>
                     </div>
                 </div>
-            </div>
 
-            <!-- Frames Tab -->
-            <div class="tab-content" id="tab-frames">
-                <div class="panel full-width">
-                    <h3>Extracted Frames</h3>
-                    <div class="frames-gallery" id="framesGallery"></div>
+                <!-- Live Stats -->
+                <div class="live-stats-grid">
+                    <div class="live-stat">
+                        <div class="live-stat-value" id="liveFrames">0</div>
+                        <div class="live-stat-label">Frames</div>
+                    </div>
+                    <div class="live-stat">
+                        <div class="live-stat-value" id="liveAudio">0:00</div>
+                        <div class="live-stat-label">Audio</div>
+                    </div>
+                    <div class="live-stat">
+                        <div class="live-stat-value" id="liveBuffer">0:00</div>
+                        <div class="live-stat-label">Buffer</div>
+                    </div>
+                    <div class="live-stat">
+                        <div class="live-stat-value" id="liveAnalyses">0</div>
+                        <div class="live-stat-label">Analyses</div>
+                    </div>
                 </div>
 
-                <!-- Frame Context Details -->
-                <div class="panel full-width" style="margin-top: 20px;">
-                    <h3>Frame OCR & Context</h3>
-                    <div id="frameContextDetails"></div>
-                </div>
-            </div>
+                <!-- Live Content -->
+                <div class="live-content-grid">
+                    <!-- Left Column: Preview & Controls -->
+                    <div>
+                        <div class="panel">
+                            <h3>Frame Preview</h3>
+                            <div class="live-frame-preview" id="liveFramePreview">
+                                <span class="placeholder">Waiting for frames...</span>
+                            </div>
+                            <div class="live-frame-time" id="liveFrameTime">-</div>
+                        </div>
 
-            <!-- Debug Tab -->
-            <div class="tab-content" id="tab-debug">
-                <div class="results-grid">
-                    <div class="panel">
-                        <h3>API Request</h3>
-                        <pre class="debug-json" id="debugRequest">-</pre>
+                        <div class="panel" style="margin-top: 15px;">
+                            <h3>Accumulated Context</h3>
+                            <div class="live-context-section">
+                                <h4>Applications</h4>
+                                <div class="tag-list" id="liveApps"></div>
+                            </div>
+                            <div class="live-context-section">
+                                <h4>URLs</h4>
+                                <div class="tag-list" id="liveUrls"></div>
+                            </div>
+                            <div class="live-context-section">
+                                <h4>Actions</h4>
+                                <div class="tag-list" id="liveActions"></div>
+                            </div>
+                        </div>
                     </div>
-                    <div class="panel">
-                        <h3>API Response Summary</h3>
-                        <pre class="debug-json" id="debugResponse">-</pre>
-                    </div>
-                    <div class="panel full-width">
-                        <h3>Full Analysis JSON</h3>
-                        <pre class="debug-json" id="debugAnalysis">-</pre>
-                    </div>
-                    <div class="panel full-width">
-                        <h3>Full Context JSON</h3>
-                        <pre class="debug-json" id="debugContext">-</pre>
+
+                    <!-- Right Column: Analysis & Transcript -->
+                    <div>
+                        <div class="panel">
+                            <h3>Current Task Analysis</h3>
+                            <div class="live-analysis-card" id="liveAnalysisCard">
+                                <div class="live-analysis-task" id="liveTaskName">Waiting for first analysis...</div>
+                                <div class="live-analysis-confidence">
+                                    <div class="live-analysis-confidence-bar">
+                                        <div class="live-analysis-confidence-fill" id="liveConfidenceFill" style="width: 0%"></div>
+                                    </div>
+                                    <span class="live-analysis-confidence-value" id="liveConfidenceValue">-</span>
+                                </div>
+                                <ol class="live-analysis-steps" id="liveSteps"></ol>
+                            </div>
+                        </div>
+
+                        <div class="panel" style="margin-top: 15px;">
+                            <h3>Live Transcript</h3>
+                            <div class="live-transcript-box" id="liveTranscript">
+                                <div class="empty-state">Waiting for audio...</div>
+                            </div>
+                        </div>
+
+                        <div class="panel" style="margin-top: 15px;">
+                            <h3>Analysis History</h3>
+                            <div id="liveAnalysisHistory" style="max-height: 200px; overflow-y: auto;">
+                                <div class="empty-state">No analyses yet</div>
+                            </div>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -911,9 +1358,346 @@
     </div>
 
     <script>
+        // =====================================================================
+        // GLOBAL STATE
+        // =====================================================================
         let currentJobId = null;
         let pollInterval = null;
+        let socket = null;
+        let currentSessionId = null;
+        let transcriptEntries = [];
+        let analysisHistory = [];
+        let accumulatedContext = {
+            apps: new Set(),
+            urls: new Set(),
+            actions: new Set()
+        };
 
+        // =====================================================================
+        // MODE SWITCHING
+        // =====================================================================
+        function switchMode(mode) {
+            document.querySelectorAll('.mode-btn').forEach(btn => {
+                btn.classList.toggle('active', btn.dataset.mode === mode);
+            });
+            document.querySelectorAll('.mode-content').forEach(content => {
+                content.classList.toggle('active', content.id === 'mode-' + mode);
+            });
+
+            // Initialize socket for live mode
+            if (mode === 'live' && !socket) {
+                initSocket();
+            }
+        }
+
+        // =====================================================================
+        // SOCKET.IO SETUP
+        // =====================================================================
+        function initSocket() {
+            socket = io();
+
+            socket.on('connect', () => {
+                console.log('Socket connected');
+            });
+
+            socket.on('disconnect', () => {
+                console.log('Socket disconnected');
+            });
+
+            socket.on('live:status', (data) => {
+                if (data.session_id === currentSessionId) {
+                    updateLiveStatus(data);
+                }
+            });
+
+            socket.on('live:frame', (data) => {
+                if (data.session_id === currentSessionId) {
+                    updateLiveFrame(data.frame, data.timestamp);
+                }
+            });
+
+            socket.on('live:transcript', (data) => {
+                if (data.session_id === currentSessionId) {
+                    addTranscriptEntry(data.text, data.timestamp);
+                }
+            });
+
+            socket.on('live:analysis', (data) => {
+                if (data.session_id === currentSessionId) {
+                    updateLiveAnalysis(data.result);
+                }
+            });
+
+            socket.on('live:error', (data) => {
+                if (data.session_id === currentSessionId) {
+                    showLiveError(data.error);
+                }
+            });
+
+            socket.on('live:state', (data) => {
+                if (data.session_id === currentSessionId) {
+                    updateLiveState(data.state);
+                }
+            });
+        }
+
+        // =====================================================================
+        // LIVE STREAM FUNCTIONS
+        // =====================================================================
+        async function checkStream() {
+            const url = document.getElementById('twitchUrl').value.trim();
+            if (!url) {
+                alert('Please enter a Twitch URL or channel name');
+                return;
+            }
+
+            const resultDiv = document.getElementById('streamCheckResult');
+            resultDiv.className = 'stream-check-result checking';
+            resultDiv.textContent = 'Checking stream availability...';
+
+            try {
+                const response = await fetch('/api/live/check', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ url })
+                });
+
+                const data = await response.json();
+
+                if (data.available) {
+                    resultDiv.className = 'stream-check-result success';
+                    resultDiv.innerHTML = `Stream is live! Available qualities: ${data.qualities.join(', ')}`;
+                    document.getElementById('startStreamBtn').disabled = false;
+                } else {
+                    resultDiv.className = 'stream-check-result error';
+                    resultDiv.textContent = 'Stream is offline or URL is invalid';
+                    document.getElementById('startStreamBtn').disabled = true;
+                }
+            } catch (error) {
+                resultDiv.className = 'stream-check-result error';
+                resultDiv.textContent = 'Error checking stream: ' + error.message;
+            }
+        }
+
+        async function startStream() {
+            const url = document.getElementById('twitchUrl').value.trim();
+            const quality = document.getElementById('streamQuality').value;
+            const interval = parseInt(document.getElementById('analysisInterval').value);
+
+            // Reset state
+            transcriptEntries = [];
+            analysisHistory = [];
+            accumulatedContext = { apps: new Set(), urls: new Set(), actions: new Set() };
+
+            try {
+                // Create session
+                const createResponse = await fetch('/api/live/sessions', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ url, quality, analysis_interval: interval })
+                });
+
+                const createData = await createResponse.json();
+                if (createData.error) {
+                    throw new Error(createData.error);
+                }
+
+                currentSessionId = createData.session_id;
+
+                // Subscribe to updates
+                socket.emit('live:subscribe', { session_id: currentSessionId });
+
+                // Start session
+                const startResponse = await fetch(`/api/live/sessions/${currentSessionId}/start`, {
+                    method: 'POST'
+                });
+
+                const startData = await startResponse.json();
+                if (startData.error) {
+                    throw new Error(startData.error);
+                }
+
+                // Update UI
+                document.getElementById('startStreamBtn').style.display = 'none';
+                document.getElementById('stopStreamBtn').style.display = 'inline-block';
+                document.getElementById('checkStreamBtn').disabled = true;
+                document.getElementById('liveStatusSection').classList.add('visible');
+
+                // Reset displays
+                document.getElementById('liveTranscript').innerHTML = '<div class="empty-state">Waiting for audio...</div>';
+                document.getElementById('liveAnalysisHistory').innerHTML = '<div class="empty-state">No analyses yet</div>';
+                document.getElementById('liveApps').innerHTML = '';
+                document.getElementById('liveUrls').innerHTML = '';
+                document.getElementById('liveActions').innerHTML = '';
+
+            } catch (error) {
+                alert('Failed to start stream: ' + error.message);
+            }
+        }
+
+        async function stopStream() {
+            if (!currentSessionId) return;
+
+            try {
+                await fetch(`/api/live/sessions/${currentSessionId}/stop`, {
+                    method: 'POST'
+                });
+
+                socket.emit('live:unsubscribe', { session_id: currentSessionId });
+
+                currentSessionId = null;
+
+                // Update UI
+                document.getElementById('startStreamBtn').style.display = 'inline-block';
+                document.getElementById('stopStreamBtn').style.display = 'none';
+                document.getElementById('checkStreamBtn').disabled = false;
+
+                updateLiveState('stopped');
+
+            } catch (error) {
+                console.error('Error stopping stream:', error);
+            }
+        }
+
+        function updateLiveStatus(status) {
+            document.getElementById('liveFrames').textContent = status.frames_captured || 0;
+            document.getElementById('liveAudio').textContent = formatDuration(status.audio_duration || 0);
+            document.getElementById('liveBuffer').textContent = formatDuration(status.buffer_duration || 0);
+            document.getElementById('liveAnalyses').textContent = status.analyses_completed || 0;
+
+            // Update connection status
+            const dot = document.getElementById('liveDot');
+            const text = document.getElementById('liveStatusText');
+
+            if (status.connected) {
+                dot.className = 'live-dot connected';
+                text.textContent = 'Connected';
+            } else {
+                dot.className = 'live-dot connecting';
+                text.textContent = 'Connecting...';
+            }
+        }
+
+        function updateLiveFrame(frameB64, timestamp) {
+            const preview = document.getElementById('liveFramePreview');
+            preview.innerHTML = `<img src="data:image/jpeg;base64,${frameB64}" alt="Live frame">`;
+
+            const timeEl = document.getElementById('liveFrameTime');
+            timeEl.textContent = `Updated ${new Date(timestamp * 1000).toLocaleTimeString()}`;
+        }
+
+        function addTranscriptEntry(text, timestamp) {
+            transcriptEntries.push({ text, timestamp });
+
+            // Keep last 20 entries
+            if (transcriptEntries.length > 20) {
+                transcriptEntries.shift();
+            }
+
+            const container = document.getElementById('liveTranscript');
+            container.innerHTML = transcriptEntries.map(entry => `
+                <div class="live-transcript-entry">
+                    <span class="live-transcript-time">${new Date(entry.timestamp * 1000).toLocaleTimeString()}</span>
+                    ${entry.text}
+                </div>
+            `).reverse().join('');
+        }
+
+        function updateLiveAnalysis(result) {
+            // Update current analysis display
+            document.getElementById('liveTaskName').textContent = result.task_name || 'Unknown Task';
+
+            const confidence = (result.confidence || 0) * 100;
+            document.getElementById('liveConfidenceFill').style.width = confidence + '%';
+            document.getElementById('liveConfidenceValue').textContent = confidence.toFixed(0) + '%';
+
+            const stepsEl = document.getElementById('liveSteps');
+            stepsEl.innerHTML = (result.steps || []).map(step => `<li>${step}</li>`).join('');
+
+            // Add to history
+            analysisHistory.unshift(result);
+            if (analysisHistory.length > 10) {
+                analysisHistory.pop();
+            }
+
+            updateAnalysisHistory();
+
+            // Update accumulated context
+            (result.detected_apps || []).forEach(app => accumulatedContext.apps.add(app));
+            (result.detected_urls || []).forEach(url => accumulatedContext.urls.add(url));
+            (result.detected_actions || []).forEach(action => accumulatedContext.actions.add(action));
+
+            updateAccumulatedContext();
+        }
+
+        function updateAnalysisHistory() {
+            const container = document.getElementById('liveAnalysisHistory');
+            if (analysisHistory.length === 0) {
+                container.innerHTML = '<div class="empty-state">No analyses yet</div>';
+                return;
+            }
+
+            container.innerHTML = analysisHistory.map((result, i) => `
+                <div class="action-item">
+                    <span class="action-verb">#${result.analysis_number}</span>
+                    <span class="action-context">
+                        <strong>${result.task_name}</strong> (${(result.confidence * 100).toFixed(0)}%)
+                        - ${result.frames_analyzed} frames, ${result.processing_time.toFixed(1)}s
+                    </span>
+                </div>
+            `).join('');
+        }
+
+        function updateAccumulatedContext() {
+            document.getElementById('liveApps').innerHTML =
+                Array.from(accumulatedContext.apps).map(app => `<span class="tag app">${app}</span>`).join('') || '<span class="tag">None</span>';
+
+            document.getElementById('liveUrls').innerHTML =
+                Array.from(accumulatedContext.urls).map(url => `<span class="tag url">${url}</span>`).join('') || '<span class="tag">None</span>';
+
+            document.getElementById('liveActions').innerHTML =
+                Array.from(accumulatedContext.actions).map(action => `<span class="tag action">${action}</span>`).join('') || '<span class="tag">None</span>';
+        }
+
+        function updateLiveState(state) {
+            const dot = document.getElementById('liveDot');
+            const text = document.getElementById('liveStatusText');
+
+            switch (state) {
+                case 'connecting':
+                    dot.className = 'live-dot connecting';
+                    text.textContent = 'Connecting...';
+                    break;
+                case 'running':
+                    dot.className = 'live-dot connected';
+                    text.textContent = 'Live';
+                    break;
+                case 'stopped':
+                    dot.className = 'live-dot';
+                    text.textContent = 'Stopped';
+                    break;
+                case 'error':
+                    dot.className = 'live-dot error';
+                    text.textContent = 'Error';
+                    break;
+            }
+        }
+
+        function showLiveError(error) {
+            const resultDiv = document.getElementById('streamCheckResult');
+            resultDiv.className = 'stream-check-result error';
+            resultDiv.textContent = 'Error: ' + error;
+        }
+
+        function formatDuration(seconds) {
+            const mins = Math.floor(seconds / 60);
+            const secs = Math.floor(seconds % 60);
+            return `${mins}:${secs.toString().padStart(2, '0')}`;
+        }
+
+        // =====================================================================
+        // BATCH UPLOAD FUNCTIONS (Original)
+        // =====================================================================
         const dropZone = document.getElementById('dropZone');
         const fileInput = document.getElementById('fileInput');
         const progressSection = document.getElementById('progressSection');
@@ -926,8 +1710,9 @@
         // Tab handling
         document.querySelectorAll('.tab').forEach(tab => {
             tab.addEventListener('click', () => {
-                document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
-                document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+                const parent = tab.closest('.analysis-result') || document;
+                parent.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+                parent.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
                 tab.classList.add('active');
                 document.getElementById('tab-' + tab.dataset.tab).classList.add('active');
             });
@@ -966,7 +1751,6 @@
                 return;
             }
 
-            // Reset UI
             dropZone.classList.add('processing');
             dropZone.querySelector('h2').textContent = 'Processing...';
             dropZone.querySelector('p').textContent = file.name;
@@ -974,7 +1758,6 @@
             analysisResult.classList.remove('visible');
             videoInfo.style.display = 'none';
 
-            // Upload file
             const formData = new FormData();
             formData.append('video', file);
 
@@ -1022,15 +1805,12 @@
         }
 
         function updateUI(data) {
-            // Progress
             progressBar.style.width = data.progress + '%';
             progressStage.textContent = data.current_stage || 'Waiting...';
 
-            // Status badge
             progressStatus.textContent = data.status.charAt(0).toUpperCase() + data.status.slice(1);
             progressStatus.className = 'progress-status ' + data.status;
 
-            // Logs
             const logsOutput = document.getElementById('logsOutput');
             logsOutput.innerHTML = data.logs.map(log => {
                 const isError = log.toLowerCase().includes('error');
@@ -1038,7 +1818,6 @@
             }).join('');
             logsOutput.scrollTop = logsOutput.scrollHeight;
 
-            // Video info
             if (data.video_duration) {
                 videoInfo.style.display = 'flex';
                 document.getElementById('infoDuration').textContent = data.video_duration.toFixed(1) + 's';
@@ -1057,12 +1836,10 @@
                 }
             }
 
-            // Show results when complete
             if (data.status === 'completed' && data.analysis) {
                 showResults(data);
             }
 
-            // Show error
             if (data.status === 'failed' && data.error) {
                 progressStage.textContent = 'Error: ' + data.error;
             }
@@ -1071,7 +1848,6 @@
         function showResults(data) {
             analysisResult.classList.add('visible');
 
-            // Overview Tab
             document.getElementById('taskName').textContent = data.analysis.task_name || 'Unknown Task';
 
             const confidence = (data.analysis.confidence || 0) * 100;
@@ -1092,7 +1868,6 @@
                 completionText.textContent = 'Not Completed';
             }
 
-            // Steps
             document.getElementById('stepsList').innerHTML = (data.analysis.steps || []).map((step, i) => `
                 <li>
                     <span class="step-number">${i + 1}</span>
@@ -1100,25 +1875,17 @@
                 </li>
             `).join('');
 
-            // Transcript
             document.getElementById('transcriptText').textContent = data.transcript || 'No transcript available';
 
-            // Quick context
             if (data.context && data.context.transcript) {
                 const ctx = data.context.transcript;
                 document.getElementById('quickApps').innerHTML = renderTags(ctx.applications, 'app');
                 document.getElementById('quickUrls').innerHTML = renderTags(ctx.urls.slice(0, 5), 'url');
-            }
-
-            // Context Tab
-            if (data.context && data.context.transcript) {
-                const ctx = data.context.transcript;
 
                 document.getElementById('ctxApps').innerHTML = renderTags(ctx.applications, 'app');
                 document.getElementById('ctxUrls').innerHTML = renderTags(ctx.urls, 'url');
                 document.getElementById('ctxEmails').innerHTML = renderTags(ctx.emails, 'email');
 
-                // Action verbs
                 document.getElementById('actionTimeline').innerHTML = ctx.action_verbs.slice(0, 20).map(a => `
                     <div class="action-item">
                         <span class="action-verb">${a.verb}</span>
@@ -1126,7 +1893,6 @@
                     </div>
                 `).join('') || '<div class="empty-state">No action verbs detected</div>';
 
-                // Sequence markers
                 document.getElementById('sequenceMarkers').innerHTML = ctx.sequence_markers.map(s => `
                     <div class="action-item">
                         <span class="action-verb">${s.marker}</span>
@@ -1134,7 +1900,6 @@
                     </div>
                 `).join('') || '<div class="empty-state">No sequence markers detected</div>';
 
-                // Sentiment
                 document.getElementById('ctxFrustration').innerHTML = ctx.frustration_indicators.map(f =>
                     `<span class="tag frustration">${f.match}</span>`
                 ).join('') || '<span class="tag">None detected</span>';
@@ -1142,7 +1907,6 @@
                 document.getElementById('ctxHesitation').innerHTML = renderTags(ctx.hesitation_markers, '') || '<span class="tag">None detected</span>';
                 document.getElementById('ctxRepetition').innerHTML = renderTags(ctx.repetition_phrases, 'repetition') || '<span class="tag">None detected</span>';
 
-                // Pain points
                 document.getElementById('painPoints').innerHTML = ctx.pain_points.map(p => `
                     <div class="pain-point">
                         <div class="description">${p}</div>
@@ -1150,7 +1914,6 @@
                 `).join('') || '<div class="empty-state">No pain points identified</div>';
             }
 
-            // Automation Tab
             if (data.context && data.context.automation) {
                 const auto = data.context.automation;
 
@@ -1166,7 +1929,6 @@
 
                 document.getElementById('autoFrequency').innerHTML = `<span class="tag">${auto.estimated_frequency || 'Unknown'}</span>`;
 
-                // Suggestions
                 document.getElementById('autoSuggestions').innerHTML = auto.automation_suggestions.map(s => `
                     <div class="suggestion-card">
                         <div class="suggestion-type">${s.type.replace(/_/g, ' ')}</div>
@@ -1175,7 +1937,6 @@
                     </div>
                 `).join('') || '<div class="empty-state">No suggestions available</div>';
 
-                // Decision points
                 document.getElementById('decisionPoints').innerHTML = auto.decision_points.map(d => `
                     <div class="pain-point">
                         <div class="severity">${d.type}</div>
@@ -1187,7 +1948,6 @@
                 document.getElementById('autoUrls').innerHTML = renderTags(auto.urls_accessed, 'url');
             }
 
-            // Frames Tab
             const framesGallery = document.getElementById('framesGallery');
             framesGallery.innerHTML = (data.frames || []).map((frame, i) => `
                 <div class="frame-thumb" onclick="showFrame('${currentJobId}', '${frame}')">
@@ -1196,7 +1956,6 @@
                 </div>
             `).join('');
 
-            // Frame context details
             if (data.context && data.context.frames) {
                 document.getElementById('frameContextDetails').innerHTML = data.context.frames.map((f, i) => `
                     <div class="action-item">
@@ -1212,7 +1971,6 @@
                 `).join('');
             }
 
-            // Debug Tab
             document.getElementById('debugRequest').textContent = JSON.stringify(data.api_request, null, 2);
             document.getElementById('debugResponse').textContent = JSON.stringify(data.api_response, null, 2);
             document.getElementById('debugAnalysis').textContent = JSON.stringify(data.analysis, null, 2);
@@ -1241,7 +1999,6 @@
             document.getElementById('frameModal').classList.remove('visible');
         }
 
-        // Close modal on escape key
         document.addEventListener('keydown', (e) => {
             if (e.key === 'Escape') closeModal();
         });

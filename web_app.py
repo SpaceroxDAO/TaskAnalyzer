@@ -1,8 +1,8 @@
 """
 TaskAnalyzer Web UI
 ===================
-Simple Flask web interface for analyzing videos via drag-and-drop.
-Enhanced with rich context extraction for automation building.
+Flask web interface for analyzing videos via drag-and-drop.
+Enhanced with rich context extraction and live Twitch stream analysis.
 """
 
 import os
@@ -12,6 +12,7 @@ import threading
 from datetime import datetime
 from pathlib import Path
 from flask import Flask, render_template, request, jsonify, send_from_directory
+from flask_socketio import SocketIO, emit
 
 import config
 from frame_extractor import extract_frames, get_video_duration
@@ -26,8 +27,22 @@ from context_extractor import (
     analyze_automation_potential
 )
 
+# Live streaming imports
+from live_config import LiveStreamConfig, QUALITY_PRESETS
+from live_session import (
+    LiveSessionManager,
+    LiveSession,
+    SessionState,
+    get_session_manager
+)
+from live_stream import check_stream_available
+
 app = Flask(__name__)
 app.config['MAX_CONTENT_LENGTH'] = 500 * 1024 * 1024  # 500MB max upload
+app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'taskanalyzer-secret-key')
+
+# Initialize SocketIO with eventlet for async support
+socketio = SocketIO(app, cors_allowed_origins="*", async_mode='threading')
 
 # Store analysis jobs and their status
 jobs = {}
@@ -36,6 +51,78 @@ jobs = {}
 UPLOAD_DIR = config.PROJECT_ROOT / "uploads"
 UPLOAD_DIR.mkdir(exist_ok=True)
 
+# Initialize session manager with callbacks
+session_manager = get_session_manager()
+
+
+# =============================================================================
+# SOCKETIO CALLBACKS FOR LIVE STREAMING
+# =============================================================================
+
+def on_live_status(session_id: str, status: dict):
+    """Callback when live session status updates."""
+    socketio.emit('live:status', {
+        'session_id': session_id,
+        **status
+    })
+
+
+def on_live_frame(session_id: str, frame_b64: str, timestamp: float):
+    """Callback when a new frame is available for preview."""
+    socketio.emit('live:frame', {
+        'session_id': session_id,
+        'frame': frame_b64,
+        'timestamp': timestamp
+    })
+
+
+def on_live_transcript(session_id: str, text: str, timestamp: float):
+    """Callback when new transcript is available."""
+    socketio.emit('live:transcript', {
+        'session_id': session_id,
+        'text': text,
+        'timestamp': timestamp
+    })
+
+
+def on_live_analysis(session_id: str, result):
+    """Callback when analysis completes."""
+    socketio.emit('live:analysis', {
+        'session_id': session_id,
+        'result': result.to_dict()
+    })
+
+
+def on_live_error(session_id: str, error: str):
+    """Callback when an error occurs."""
+    socketio.emit('live:error', {
+        'session_id': session_id,
+        'error': error
+    })
+
+
+def on_live_state_change(session_id: str, state: SessionState):
+    """Callback when session state changes."""
+    socketio.emit('live:state', {
+        'session_id': session_id,
+        'state': state.value
+    })
+
+
+# Set up session manager callbacks
+session_manager.set_callbacks(
+    on_status=on_live_status,
+    on_frame=on_live_frame,
+    on_transcript=on_live_transcript,
+    on_analysis=on_live_analysis,
+    on_error=on_live_error,
+    on_state_change=on_live_state_change,
+)
+
+
+# =============================================================================
+# BATCH VIDEO ANALYSIS (Original functionality)
+# =============================================================================
 
 class AnalysisJob:
     """Tracks the state of an analysis job."""
@@ -204,9 +291,13 @@ def run_analysis(job: AnalysisJob):
         job.log(traceback.format_exc())
 
 
+# =============================================================================
+# HTTP ROUTES - BATCH ANALYSIS
+# =============================================================================
+
 @app.route("/")
 def index():
-    """Main page with drag-drop upload."""
+    """Main page with drag-drop upload and live stream interface."""
     return render_template("index.html")
 
 
@@ -270,27 +361,177 @@ def list_jobs():
     })
 
 
+# =============================================================================
+# HTTP ROUTES - LIVE STREAMING
+# =============================================================================
+
+@app.route("/api/live/check", methods=["POST"])
+def check_stream():
+    """Check if a Twitch stream is available."""
+    data = request.get_json()
+    twitch_url = data.get("url", "")
+
+    if not twitch_url:
+        return jsonify({"error": "No URL provided"}), 400
+
+    # Normalize URL
+    if not twitch_url.startswith("http"):
+        twitch_url = f"https://twitch.tv/{twitch_url}"
+
+    available, qualities = check_stream_available(twitch_url)
+
+    return jsonify({
+        "available": available,
+        "qualities": qualities,
+        "url": twitch_url
+    })
+
+
+@app.route("/api/live/sessions", methods=["GET"])
+def list_live_sessions():
+    """List all live streaming sessions."""
+    sessions = session_manager.get_all_sessions()
+    return jsonify({
+        sid: session.to_dict()
+        for sid, session in sessions.items()
+    })
+
+
+@app.route("/api/live/sessions", methods=["POST"])
+def create_live_session():
+    """Create a new live streaming session."""
+    data = request.get_json()
+    twitch_url = data.get("url", "")
+    quality = data.get("quality", "480p")
+    analysis_interval = data.get("analysis_interval", 30)
+
+    if not twitch_url:
+        return jsonify({"error": "No URL provided"}), 400
+
+    # Normalize URL
+    if not twitch_url.startswith("http"):
+        twitch_url = f"https://twitch.tv/{twitch_url}"
+
+    try:
+        session = session_manager.create_session(
+            twitch_url=twitch_url,
+            quality=quality,
+            analysis_interval=analysis_interval
+        )
+        return jsonify({
+            "session_id": session.session_id,
+            "status": "created",
+            "session": session.to_dict()
+        })
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+@app.route("/api/live/sessions/<session_id>", methods=["GET"])
+def get_live_session(session_id):
+    """Get details of a specific live session."""
+    status = session_manager.get_session_status(session_id)
+    if not status:
+        return jsonify({"error": "Session not found"}), 404
+    return jsonify(status)
+
+
+@app.route("/api/live/sessions/<session_id>/start", methods=["POST"])
+def start_live_session(session_id):
+    """Start a live streaming session."""
+    success = session_manager.start_session(session_id)
+    if success:
+        return jsonify({"status": "started", "session_id": session_id})
+    else:
+        return jsonify({"error": "Failed to start session"}), 500
+
+
+@app.route("/api/live/sessions/<session_id>/stop", methods=["POST"])
+def stop_live_session(session_id):
+    """Stop a live streaming session."""
+    success = session_manager.stop_session(session_id)
+    if success:
+        return jsonify({"status": "stopped", "session_id": session_id})
+    else:
+        return jsonify({"error": "Failed to stop session"}), 500
+
+
+@app.route("/api/live/sessions/<session_id>", methods=["DELETE"])
+def delete_live_session(session_id):
+    """Delete a live streaming session."""
+    success = session_manager.remove_session(session_id)
+    if success:
+        return jsonify({"status": "deleted", "session_id": session_id})
+    else:
+        return jsonify({"error": "Failed to delete session"}), 404
+
+
+@app.route("/api/live/qualities")
+def get_quality_presets():
+    """Get available quality presets."""
+    return jsonify(QUALITY_PRESETS)
+
+
+# =============================================================================
+# SOCKETIO EVENT HANDLERS
+# =============================================================================
+
+@socketio.on('connect')
+def handle_connect():
+    """Handle client connection."""
+    print(f"Client connected: {request.sid}")
+
+
+@socketio.on('disconnect')
+def handle_disconnect():
+    """Handle client disconnection."""
+    print(f"Client disconnected: {request.sid}")
+
+
+@socketio.on('live:subscribe')
+def handle_subscribe(data):
+    """Subscribe to updates for a specific session."""
+    session_id = data.get('session_id')
+    print(f"Client {request.sid} subscribed to session {session_id}")
+    # Could implement room-based routing here if needed
+
+
+@socketio.on('live:unsubscribe')
+def handle_unsubscribe(data):
+    """Unsubscribe from session updates."""
+    session_id = data.get('session_id')
+    print(f"Client {request.sid} unsubscribed from session {session_id}")
+
+
+# =============================================================================
+# MAIN
+# =============================================================================
+
 if __name__ == "__main__":
     # Ensure output directories exist
     config.ensure_output_dirs()
 
     print("=" * 60)
-    print("  TaskAnalyzer Web UI (Enhanced)")
+    print("  TaskAnalyzer Web UI")
     print("=" * 60)
     print()
     print("  Open in browser: http://localhost:5001")
     print()
     print("  Features:")
+    print("    BATCH ANALYSIS:")
     print("    - Video frame extraction")
     print("    - Audio transcription (Whisper)")
     print("    - Claude Vision analysis")
-    print("    - Rich context extraction:")
-    print("      * OCR from frames")
-    print("      * Named entity extraction")
-    print("      * Action verb detection")
-    print("      * Frustration/sentiment analysis")
-    print("      * Automation potential scoring")
+    print("    - Rich context extraction")
+    print()
+    print("    LIVE STREAMING:")
+    print("    - Twitch stream capture")
+    print("    - Real-time frame preview")
+    print("    - Periodic analysis (every 30s)")
+    print("    - Live transcript updates")
+    print("    - WebSocket real-time updates")
     print()
     print("=" * 60)
 
-    app.run(host="0.0.0.0", port=5001, debug=True, threaded=True)
+    # Use socketio.run instead of app.run for WebSocket support
+    socketio.run(app, host="0.0.0.0", port=5001, debug=True, allow_unsafe_werkzeug=True)
